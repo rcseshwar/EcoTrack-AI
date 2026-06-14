@@ -1,0 +1,14 @@
+{
+  "name": "ecotrack-ai",
+  "version": "1.0.0",
+  "description": "Personal Carbon Footprint Tracker with AI",
+  "scripts": {
+    "install:all": "npm install && npm install --prefix frontend && .venv/bin/pip install -r requirements.txt",
+    "backend": ".venv/bin/python backend/main.py",
+    "frontend": "npm run dev --prefix frontend",
+    "dev": "npx concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
