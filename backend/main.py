@@ -27,10 +27,13 @@ app.add_middleware(
 # Initialize database
 init_db()
 
-# Mock Auth Dependency
-def get_current_user_email(token: Optional[str] = "user@example.com"):
-    # Simplified login simulation
-    return token or "user@example.com"
+# Auth Dependency — reads from Authorization header (email used as token for simplicity)
+from fastapi import Header
+def get_current_user_email(authorization: Optional[str] = Header(default="demo@ecotrack.ai")):
+    # Strip 'Bearer ' prefix if present
+    if authorization and authorization.startswith("Bearer "):
+        return authorization[7:]
+    return authorization or "demo@ecotrack.ai"
 
 # Request Pydantic Models
 class FootprintInput(BaseModel):
@@ -184,10 +187,11 @@ def submit_footprint(data: FootprintInput, email: str = Depends(get_current_user
     cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
     user = cursor.fetchone()
     if not user:
-        # Auto-create mock user
-        cursor.execute("INSERT INTO users (email, password) VALUES (?, 'password')", (email, 'password'))
+        # Auto-create user on first footprint submission
+        cursor.execute("INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)", (email, 'password'))
         conn.commit()
-        user_id = cursor.lastrowid
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+        user_id = cursor.fetchone()["id"]
     else:
         user_id = user["id"]
         
@@ -440,9 +444,12 @@ async def upload_bill(file: UploadFile = File(...), email: str = Depends(get_cur
     parsed = agents.analyze_bill_text(email, text)
     return parsed
 
-# Optional: Mount frontend static build files if they exist (for production)
-if os.path.exists("frontend/dist"):
-    app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
+# Mount frontend static build files if they exist (for production on Cloud Run)
+# Dockerfile copies frontend dist to /app/backend/frontend/dist
+# When running as 'python -m uvicorn backend.main:app', CWD is /app
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+if os.path.exists(STATIC_DIR):
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
