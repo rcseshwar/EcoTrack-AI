@@ -489,10 +489,12 @@ export default function App() {
             <p className="text-gray-400 text-sm mt-1 text-center">Personal Carbon Footprint Awareness & AI Coaching</p>
           </div>
 
-          <form onSubmit={handleAuth} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4" aria-label="Authentication form">
             <div>
-              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Email Address</label>
+              <label htmlFor="login-email" className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Email Address</label>
               <input 
+                id="login-email"
+                aria-label="Email address"
                 type="email" 
                 placeholder="you@example.com" 
                 value={email}
@@ -502,8 +504,10 @@ export default function App() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Password</label>
+              <label htmlFor="login-password" className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Password</label>
               <input 
+                id="login-password"
+                aria-label="Password"
                 type="password" 
                 placeholder="••••••••" 
                 value={password}
@@ -601,7 +605,7 @@ export default function App() {
       </aside>
 
       {/* Main Panel */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto max-w-7xl mx-auto w-full">
+      <main id="main-content" className="flex-1 p-6 md:p-10 overflow-y-auto max-w-7xl mx-auto w-full" tabIndex={-1}>
         
         {/* Tab 1: Dashboard */}
         {activeTab === 'dashboard' && (

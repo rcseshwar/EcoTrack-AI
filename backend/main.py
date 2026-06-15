@@ -11,14 +11,18 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 
 from database import init_db, get_db_connection
+from passlib.context import CryptContext
 import agents
 
 app = FastAPI(title="EcoTrack AI API", version="1.0.0")
 
 # CORS middleware
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+# Restrict CORS to known dev origins instead of allowing all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -140,7 +144,9 @@ def register(data: AuthInput):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (data.email, data.password))
+        # Hash the password before storing
+        hashed = pwd_context.hash(data.password)
+        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (data.email, hashed))
         conn.commit()
         # Seed default habits for user
         cursor.execute("SELECT id FROM users WHERE email = ?", (data.email,))
@@ -159,10 +165,11 @@ def register(data: AuthInput):
 def login(data: AuthInput):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ? AND password = ?", (data.email, data.password))
+    cursor.execute("SELECT * FROM users WHERE email = ?", (data.email,))
     user = cursor.fetchone()
     conn.close()
-    if not user:
+    # Verify hashed password
+    if not user or not pwd_context.verify(data.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"status": "success", "token": data.email}
 
@@ -188,7 +195,9 @@ def submit_footprint(data: FootprintInput, email: str = Depends(get_current_user
     user = cursor.fetchone()
     if not user:
         # Auto-create user on first footprint submission
-        cursor.execute("INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)", (email, 'password'))
+        # Store a hashed default password for auto-created users
+        hashed_auto = pwd_context.hash('changeme')
+        cursor.execute("INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)", (email, hashed_auto))
         conn.commit()
         cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         user_id = cursor.fetchone()["id"]
@@ -204,7 +213,7 @@ def submit_footprint(data: FootprintInput, email: str = Depends(get_current_user
         electricity, renewables, appliances, diet, meat_freq, food_source,
         fashion_purchases, electronics_purchases, online_shopping, recycling, composting, plastic_use,
         total_co2, transport_co2, energy_co2, food_co2, shopping_co2, waste_co2, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         user_id, data.month, data.commute_distance, data.vehicle_type, data.fuel_type, data.public_transport, data.flights,
         data.electricity, data.renewables, data.appliances, data.diet, data.meat_freq, data.food_source,
